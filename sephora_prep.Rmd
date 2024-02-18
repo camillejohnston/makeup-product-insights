@@ -1,0 +1,174 @@
+---
+title: "Trends in Sephora Reviews — Data Cleaning and Prep"
+author: "Camille Johnston"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# Load packages
+
+```{r}
+library(tidyverse) ## Always load tidyverse
+library(tidytext) ## Needed for text analysis
+library(data.table) ## Faster reading and writing of large files 
+```
+
+
+# Load raw data
+
+```{r}
+
+## Load in product categories 
+product_list <- fread("/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/raw_data/product_info.csv") %>% 
+  select(product_id, primary_category)
+
+
+## List CSV files, read them, and bind into a single data frame
+sephora <- list.files(path = "/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/raw_data/", 
+                      pattern = "^reviews.*\\.csv$", 
+                      full.names = TRUE) %>%
+  map_df(~ fread(.x), .id = "file_id") %>% 
+  select(product_id, product_name, brand_name, submission_time, rating, is_recommended, review_title, review_text) %>% 
+  mutate(year = as.numeric(substr(submission_time, 1, 4))) %>%
+  distinct() %>% 
+  left_join(product_list)
+
+```
+
+
+# Explore raw data
+
+```{r}
+
+## Check for duplicate rows
+sum(duplicated(sephora))
+
+## Look at date range of reviews
+range(sephora$submission_time)
+
+## Overview of full dataframe
+skimr::skim(sephora)
+
+```
+
+
+# Unnest tokens
+
+```{r}
+
+## Merge the title of the review with the actual review, and unnest tokens
+sephora_tokens <- sephora %>%
+  unite("review_title_and_test", review_title, review_text, sep = " ") %>%
+  unnest_tokens(word, review_title_and_test)
+
+```
+
+
+# Counting tokens
+
+```{r}
+
+## Count use of each token, and average across ratings and recommendation given
+sephora_token_counts <- sephora_tokens %>%
+  group_by(word) %>% 
+  summarise(n = n(),
+            average_rating = mean(rating, na.rm=TRUE), 
+            average_recommendation = mean(is_recommended, na.rm=TRUE)) %>%
+  arrange(-n) %>% 
+  filter(n>150) ## filters words used more than 150 times ever (roughly ~10x per year)
+
+```
+
+
+# Explore token counts
+
+```{r}
+
+## Overview of full dataframe
+skimr::skim(sephora_token_counts)
+
+## Summary of how often each token was used
+summary(sephora_token_counts$n)
+
+## Distribution of word counts
+sephora_token_counts %>% 
+  ggplot(aes(n)) + 
+  geom_histogram(fill="cornflowerblue") + 
+  geom_vline(aes(xintercept = mean(n, na.rm=TRUE)), lty = 2) +
+  geom_vline(aes(xintercept = median(n, na.rm=TRUE))) +
+  scale_x_log10(labels = function(x) format(x, scientific = FALSE)) +
+  labs(title = "Word Counts", subtitle = "solid line = median; dotted line = mean")+
+  theme_classic()
+```
+
+
+# Grouping word use
+
+```{r}
+
+## Group word use by year
+sephora_token_counts_year <- sephora_tokens %>%
+  group_by(word, year) %>%
+  summarise(n = n(),
+            average_rating = mean(rating, na.rm = TRUE),
+            average_recommendation = mean(is_recommended, na.rm = TRUE)) %>% 
+  arrange(-n)%>% 
+  filter(n>20) %>% ## keep words used more than 20x per year
+  group_by(word) %>%
+  filter(n() > 10) %>% ## keep words that had substantial use more than half of the years
+  ungroup()
+
+## Group word use by year and category
+sephora_token_counts_category <- sephora_tokens %>%
+  filter(!(primary_category %in% c("Gifts", "Men", "Mini Size", "Tools & Brushes"))) %>% ## remove categories with barely any reviews
+  group_by(word, year, primary_category) %>%
+  summarise(n = n(),
+            average_rating = mean(rating, na.rm = TRUE),
+            average_recommendation = mean(is_recommended, na.rm = TRUE)) %>% 
+  arrange(-n)%>% 
+  filter(n>10) %>% ## keep words used more than 10x per year per category
+  group_by(word) %>%
+  filter(n() > 8) %>% ## keep words that had substantial use more than half of the years
+  ungroup()
+
+```
+
+
+# Explore grouped counts 
+
+```{r}
+
+## Overview of dataframes
+skimr::skim(sephora_token_counts_year)
+skimr::skim(sephora_token_counts_category)
+
+## Summary of how often each token was used
+summary(sephora_token_counts_year$n)
+summary(sephora_token_counts_category$n)
+
+## Tokens used per year
+table(sephora_token_counts_year$year)
+table(sephora_token_counts_category$year)
+
+```
+
+
+# Save data 
+
+```{r}
+
+## Set curent directory as our path
+path <- here::here()
+
+
+## Save clean dataframes
+fwrite(sephora_tokens, paste0(path, "/data/sephora_tokens.csv"))
+fwrite(sephora_token_counts, paste0(path, "/data/sephora_token_counts.csv"))
+fwrite(sephora_token_counts_year, paste0(path, "/data/sephora_token_counts_year.csv"))
+fwrite(sephora_token_counts_category, paste0(path, "/data/sephora_token_counts_category.csv"))
+
+```
+

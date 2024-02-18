@@ -1,0 +1,109 @@
+---
+title: "Trends in Sephora Reviews — Analyses and Visualization"
+author: "Camille Johnston"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Load packages
+
+```{r}
+library(tidyverse) ## Always load tidyverse
+library(tidytext) ## Needed for text analysis
+library(data.table) ## Faster reading and writing of large files 
+library(plotly) ## Interactive plots
+```
+
+
+
+# Which words are associated with higher or lower ratings?
+
+```{r}
+sephora_token_counts %>%
+  anti_join(get_stopwords()) %>%
+  ggplot(aes(n, average_rating)) +
+  geom_hline(yintercept = 2.63, lty = 2, color = "grey", size = 0.5) +
+  geom_text(aes(label = word), check_overlap = TRUE, show.legend = FALSE, vjust = "top", hjust = "left") +
+  scale_x_log10(labels = function(x) format(x, scientific = FALSE)) +  ## Use a logarithmic scale for the x-axis
+  #xlim(140, 300)+
+  theme_classic()  ## Use a classic theme for the plot
+
+```
+
+
+
+# Exploring word use trajectories across year
+
+```{r}
+sephora_token_counts_year %>% 
+  ggplot(aes(x = year, y = average_rating, group = word, color = n)) +
+  geom_line() +
+  labs(x = "Year", y = "Score") +
+  theme_minimal()
+
+sephora_token_counts_year %>% 
+  ggplot(aes(x = year, y = average_rating, group = word)) +
+  geom_smooth(method = "lm", se = FALSE) +  # Fit linear regression lines
+  labs(x = "Year", y = "Score") +
+  theme_minimal()
+```
+
+
+# Fitting relationship between word use over time and product rating
+
+```{r}
+linear_slopes <- sephora_token_counts_year %>%
+  group_by(word) %>%
+  do(model = lm(average_rating ~ year, data = .)) %>%
+  summarize(
+    word = word[1], 
+    slope = coef(model)[2],         # Extract the slope coefficient
+    intercept = coef(model)[1],     # Extract the intercept coefficient
+    significance = summary(model)$coefficients[2, 4]  # Extract the p-value for the slope
+  ) %>%
+  ungroup()
+```
+
+
+# Which words have most substantial change in associated rating over time?
+
+```{r}
+linear_slopes %>% 
+  filter(significance < 0.05) %>% 
+  slice_max(abs(slope), n = 50) %>%
+  ungroup() %>%
+  ggplot(aes(slope, fct_reorder(word, slope), fill = slope > 0)) +
+  geom_col(alpha = 0.8) +
+  theme_classic()
+```
+
+
+# Plotting words with substantial change in associated rating over time
+
+```{r}
+linear_slopes_significant <-  linear_slopes %>% 
+  filter(significance < 0.01)
+
+linear_slopes_significant_words <- linear_slopes_significant %>% 
+  filter(abs(slope) >= 0.1) %>% 
+  select(word)
+
+token_trajectories_lm <- sephora_token_counts_year %>% 
+  right_join(linear_slopes_significant_words) %>% 
+  ggplot(aes(x = year, y = average_rating, group = word, color = word)) +
+  geom_smooth(method = "lm", se = FALSE) +  
+  labs(x = "Year", y = "Score") +
+  theme_classic()
+
+token_trajectories_loess <- sephora_token_counts_year %>% 
+  right_join(linear_slopes_significant_words) %>% 
+  ggplot(aes(x = year, y = average_rating, group = word, color = word)) +
+  geom_smooth(method = "loess", se = FALSE) +  # Fit loess lines
+  labs(x = "Year", y = "Score") +
+  theme_classic() 
+
+ggplotly(token_trajectories_lm)
+ggplotly(token_trajectories_loess)
+```
