@@ -392,7 +392,7 @@ library(data.table) ## Faster reading and writing of large files </code></pre>
 <h1>Load raw data</h1>
 <pre class="r"><code>## Load in product categories 
 product_list &lt;- fread(&quot;/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/raw_data/product_info.csv&quot;) %&gt;% 
-  select(product_id, primary_category)
+  select(product_id, primary_category, secondary_category)
 
 
 ## List CSV files, read them, and bind into a single data frame
@@ -429,7 +429,7 @@ skimr::skim(sephora)</code></pre>
 </tr>
 <tr class="odd">
 <td align="left">Number of columns</td>
-<td align="left">10</td>
+<td align="left">11</td>
 </tr>
 <tr class="even">
 <td align="left">Key</td>
@@ -445,7 +445,7 @@ skimr::skim(sephora)</code></pre>
 </tr>
 <tr class="odd">
 <td align="left">character</td>
-<td align="left">6</td>
+<td align="left">7</td>
 </tr>
 <tr class="even">
 <td align="left">Date</td>
@@ -468,14 +468,14 @@ skimr::skim(sephora)</code></pre>
 <p><strong>Variable type: character</strong></p>
 <table style="width:100%;">
 <colgroup>
-<col width="22%" />
+<col width="24%" />
 <col width="12%" />
-<col width="18%" />
+<col width="17%" />
 <col width="5%" />
 <col width="6%" />
-<col width="9%" />
+<col width="8%" />
 <col width="11%" />
-<col width="14%" />
+<col width="13%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -548,6 +548,16 @@ skimr::skim(sephora)</code></pre>
 <td align="right">8</td>
 <td align="right">0</td>
 <td align="right">1</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">secondary_category</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">5</td>
+<td align="right">22</td>
+<td align="right">0</td>
+<td align="right">13</td>
 <td align="right">0</td>
 </tr>
 </tbody>
@@ -864,8 +874,8 @@ sephora_token_counts_year &lt;- sephora_tokens %&gt;%
 ## `.groups` argument.</code></pre>
 <pre class="r"><code>## Group word use by year and category
 sephora_token_counts_category &lt;- sephora_tokens %&gt;%
-  filter(!(primary_category %in% c(&quot;Gifts&quot;, &quot;Men&quot;, &quot;Mini Size&quot;, &quot;Tools &amp; Brushes&quot;))) %&gt;% ## remove categories with barely any reviews
-  group_by(word, year, primary_category) %&gt;%
+  filter((secondary_category %in% c(&quot;Moisturizers&quot;, &quot;Treatments&quot;, &quot;Cleansers&quot;, &quot;Eye Care&quot;, &quot;Masks&quot;, &quot;Sunscreen&quot;))) %&gt;% ## keep only categories with fair amount of products
+  group_by(word, year, secondary_category) %&gt;%
   summarise(n = n(),
             average_rating = mean(rating, na.rm = TRUE),
             average_recommendation = mean(is_recommended, na.rm = TRUE)) %&gt;% 
@@ -1054,7 +1064,7 @@ skimr::skim(sephora_token_counts_year)</code></pre>
 </tr>
 <tr class="even">
 <td align="left">Number of rows</td>
-<td align="left">51239</td>
+<td align="left">151884</td>
 </tr>
 <tr class="odd">
 <td align="left">Number of columns</td>
@@ -1087,15 +1097,15 @@ skimr::skim(sephora_token_counts_year)</code></pre>
 </tbody>
 </table>
 <p><strong>Variable type: character</strong></p>
-<table>
+<table style="width:100%;">
 <colgroup>
-<col width="22%" />
-<col width="13%" />
+<col width="24%" />
+<col width="12%" />
 <col width="18%" />
 <col width="5%" />
 <col width="5%" />
-<col width="8%" />
-<col width="12%" />
+<col width="7%" />
+<col width="11%" />
 <col width="14%" />
 </colgroup>
 <thead>
@@ -1118,30 +1128,30 @@ skimr::skim(sephora_token_counts_year)</code></pre>
 <td align="right">1</td>
 <td align="right">17</td>
 <td align="right">0</td>
-<td align="right">3811</td>
+<td align="right">4200</td>
 <td align="right">0</td>
 </tr>
 <tr class="even">
-<td align="left">primary_category</td>
+<td align="left">secondary_category</td>
 <td align="right">0</td>
 <td align="right">1</td>
-<td align="right">8</td>
-<td align="right">8</td>
+<td align="right">5</td>
+<td align="right">12</td>
 <td align="right">0</td>
-<td align="right">1</td>
+<td align="right">6</td>
 <td align="right">0</td>
 </tr>
 </tbody>
 </table>
 <p><strong>Variable type: numeric</strong></p>
-<table>
+<table style="width:100%;">
 <colgroup>
 <col width="21%" />
 <col width="9%" />
-<col width="12%" />
+<col width="13%" />
 <col width="7%" />
-<col width="8%" />
 <col width="7%" />
+<col width="4%" />
 <col width="7%" />
 <col width="7%" />
 <col width="7%" />
@@ -1167,52 +1177,52 @@ skimr::skim(sephora_token_counts_year)</code></pre>
 <tr class="odd">
 <td align="left">year</td>
 <td align="right">0</td>
-<td align="right">1.00</td>
-<td align="right">2016.45</td>
-<td align="right">4.24</td>
-<td align="right">2008.00</td>
-<td align="right">2013.00</td>
-<td align="right">2017.00</td>
-<td align="right">2020.00</td>
+<td align="right">1.0</td>
+<td align="right">2017.93</td>
+<td align="right">3.77</td>
+<td align="right">2008</td>
+<td align="right">2016.00</td>
+<td align="right">2019.00</td>
+<td align="right">2021.00</td>
 <td align="right">2023</td>
-<td align="left">▆▆▇▇▇</td>
+<td align="left">▂▃▅▇▇</td>
 </tr>
 <tr class="even">
 <td align="left">n</td>
 <td align="right">0</td>
-<td align="right">1.00</td>
-<td align="right">1307.21</td>
-<td align="right">11150.23</td>
-<td align="right">11.00</td>
-<td align="right">34.00</td>
-<td align="right">99.00</td>
-<td align="right">364.00</td>
-<td align="right">610632</td>
+<td align="right">1.0</td>
+<td align="right">367.85</td>
+<td align="right">2663.70</td>
+<td align="right">11</td>
+<td align="right">20.00</td>
+<td align="right">42.00</td>
+<td align="right">131.00</td>
+<td align="right">164056</td>
 <td align="left">▇▁▁▁▁</td>
 </tr>
 <tr class="odd">
 <td align="left">average_rating</td>
 <td align="right">0</td>
-<td align="right">1.00</td>
-<td align="right">4.31</td>
-<td align="right">0.41</td>
-<td align="right">1.42</td>
-<td align="right">4.14</td>
-<td align="right">4.38</td>
+<td align="right">1.0</td>
+<td align="right">4.25</td>
+<td align="right">0.47</td>
+<td align="right">1</td>
+<td align="right">4.06</td>
+<td align="right">4.34</td>
 <td align="right">4.57</td>
 <td align="right">5</td>
-<td align="left">▁▁▁▅▇</td>
+<td align="left">▁▁▁▃▇</td>
 </tr>
 <tr class="even">
 <td align="left">average_recommendation</td>
-<td align="right">24873</td>
-<td align="right">0.51</td>
-<td align="right">0.83</td>
-<td align="right">0.13</td>
-<td align="right">0.00</td>
-<td align="right">0.78</td>
-<td align="right">0.85</td>
-<td align="right">0.91</td>
+<td align="right">46028</td>
+<td align="right">0.7</td>
+<td align="right">0.82</td>
+<td align="right">0.15</td>
+<td align="right">0</td>
+<td align="right">0.76</td>
+<td align="right">0.86</td>
+<td align="right">0.92</td>
 <td align="right">1</td>
 <td align="left">▁▁▁▃▇</td>
 </tr>
@@ -1223,8 +1233,8 @@ summary(sephora_token_counts_year$n)</code></pre>
 <pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
 ##      21      72     220    2062     751  610632</code></pre>
 <pre class="r"><code>summary(sephora_token_counts_category$n)</code></pre>
-<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##      11      34      99    1307     364  610632</code></pre>
+<pre><code>##     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+##     11.0     20.0     42.0    367.9    131.0 164056.0</code></pre>
 <pre class="r"><code>## Tokens used per year
 table(sephora_token_counts_year$year)</code></pre>
 <pre><code>## 
@@ -1232,8 +1242,10 @@ table(sephora_token_counts_year$year)</code></pre>
 ##  668 1393 1823 1909 1907 2130 2174 2178 2196 2199 2202 2202 2202 2199 2197 2127</code></pre>
 <pre class="r"><code>table(sephora_token_counts_category$year)</code></pre>
 <pre><code>## 
-## 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 
-##  994 2050 2576 2711 2705 3125 3358 3588 3766 3795 3806 3807 3808 3803 3793 3554</code></pre>
+##  2008  2009  2010  2011  2012  2013  2014  2015  2016  2017  2018  2019  2020 
+##  1198  3045  4255  4529  4561  5596  6390  7434  9003 11129 14213 16541 18333 
+##  2021  2022  2023 
+## 18463 17523  9671</code></pre>
 </div>
 <div id="save-data" class="section level1">
 <h1>Save data</h1>
@@ -1242,6 +1254,7 @@ path &lt;- here::here()
 
 
 ## Save clean dataframes
+fwrite(sephora, paste0(path, &quot;/data/sephora.csv&quot;))
 fwrite(sephora_tokens, paste0(path, &quot;/data/sephora_tokens.csv&quot;))
 fwrite(sephora_token_counts, paste0(path, &quot;/data/sephora_token_counts.csv&quot;))
 fwrite(sephora_token_counts_year, paste0(path, &quot;/data/sephora_token_counts_year.csv&quot;))

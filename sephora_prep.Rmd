@@ -23,7 +23,7 @@ library(data.table) ## Faster reading and writing of large files
 
 ## Load in product categories 
 product_list <- fread("/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/raw_data/product_info.csv") %>% 
-  select(product_id, primary_category)
+  select(product_id, primary_category, secondary_category)
 
 
 ## List CSV files, read them, and bind into a single data frame
@@ -123,8 +123,8 @@ sephora_token_counts_year <- sephora_tokens %>%
 
 ## Group word use by year and category
 sephora_token_counts_category <- sephora_tokens %>%
-  filter(!(primary_category %in% c("Gifts", "Men", "Mini Size", "Tools & Brushes"))) %>% ## remove categories with barely any reviews
-  group_by(word, year, primary_category) %>%
+  filter((secondary_category %in% c("Moisturizers", "Treatments", "Cleansers", "Eye Care", "Masks", "Sunscreen"))) %>% ## keep only categories with fair amount of products
+  group_by(word, year, secondary_category) %>%
   summarise(n = n(),
             average_rating = mean(rating, na.rm = TRUE),
             average_recommendation = mean(is_recommended, na.rm = TRUE)) %>% 
@@ -165,6 +165,7 @@ path <- here::here()
 
 
 ## Save clean dataframes
+fwrite(sephora, paste0(path, "/data/sephora.csv"))
 fwrite(sephora_tokens, paste0(path, "/data/sephora_tokens.csv"))
 fwrite(sephora_token_counts, paste0(path, "/data/sephora_token_counts.csv"))
 fwrite(sephora_token_counts_year, paste0(path, "/data/sephora_token_counts_year.csv"))

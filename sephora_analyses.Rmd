@@ -18,6 +18,17 @@ library(plotly) ## Interactive plots
 
 
 
+# Read back in processed data if needed
+
+```{r}
+sephora_tokens <- fread("/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/processed_data/sephora_tokens.csv")
+sephora_token_counts <- fread("/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/processed_data/sephora_token_counts.csv")
+sephora_token_counts_year <- fread("/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/processed_data/sephora_token_counts_year.csv")
+linear_slopes <- fread("/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/processed_data/linear_slopes.csv")
+```
+
+
+
 # Which words are associated with higher or lower ratings?
 
 ```{r}
@@ -107,3 +118,10 @@ token_trajectories_loess <- sephora_token_counts_year %>%
 ggplotly(token_trajectories_lm)
 ggplotly(token_trajectories_loess)
 ```
+
+```{r}
+fwrite(linear_slopes, "/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/processed_data/linear_slopes.csv")
+```
+
+
+
