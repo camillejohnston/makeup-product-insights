@@ -17,75 +17,95 @@ library(plotly) ## Interactive plots
 ```
 
 
-
-# Read back in processed data if needed
+# Load in clean dataframes you prepared
 
 ```{r}
-sephora_tokens <- fread("/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/processed_data/sephora_tokens.csv")
-sephora_token_counts <- fread("/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/processed_data/sephora_token_counts.csv")
-sephora_token_counts_year <- fread("/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/processed_data/sephora_token_counts_year.csv")
-linear_slopes <- fread("/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/processed_data/linear_slopes.csv")
-```
+## Set curent directory as our path
+path <- here::here()
 
+## Read clean dataframes
+#sephora_tokens <- fread(paste0(path, "/data/sephora_tokens.csv"))
+#sephora_token_counts <- fread(paste0(path, "/data/sephora_token_counts.csv"))
+sephora_token_counts_year <- fread(paste0(path, "/data/sephora_token_counts_year.csv"))
+sephora_token_counts_category <- fread(paste0(path, "/data/sephora_token_counts_category.csv"))
+
+```
 
 
 # Which words are associated with higher or lower ratings?
 
-```{r}
-sephora_token_counts %>%
+Note to self, remember to collapse accross years
+
+```{r, fig.dim = c(10, 8)}
+
+sephora_token_counts_category %>%
   anti_join(get_stopwords()) %>%
+  filter(str_detect(word, "[A-Za-z]")) %>% 
+  filter(nchar(word) > 1) %>% 
+  filter(n > 30) %>% 
   ggplot(aes(n, average_rating)) +
   geom_hline(yintercept = 2.63, lty = 2, color = "grey", size = 0.5) +
-  geom_text(aes(label = word), check_overlap = TRUE, show.legend = FALSE, vjust = "top", hjust = "left") +
-  scale_x_log10(labels = function(x) format(x, scientific = FALSE)) +  ## Use a logarithmic scale for the x-axis
-  #xlim(140, 300)+
-  theme_classic()  ## Use a classic theme for the plot
+  geom_text(aes(label = word, color = secondary_category), check_overlap = TRUE, show.legend = FALSE, vjust = "top", hjust = "left") +
+  scale_x_log10(labels = function(x) format(x, scientific = FALSE)) +
+  facet_wrap(vars(secondary_category))+
+  theme_classic()
 
 ```
 
 
-
 # Exploring word use trajectories across year
+
+Work in progress, decided to change my approach
 
 ```{r}
 sephora_token_counts_year %>% 
   ggplot(aes(x = year, y = average_rating, group = word, color = n)) +
   geom_line() +
   labs(x = "Year", y = "Score") +
-  theme_minimal()
+  theme_classic()
 
 sephora_token_counts_year %>% 
   ggplot(aes(x = year, y = average_rating, group = word)) +
   geom_smooth(method = "lm", se = FALSE) +  # Fit linear regression lines
   labs(x = "Year", y = "Score") +
-  theme_minimal()
+  theme_classic()
 ```
 
 
 # Fitting relationship between word use over time and product rating
 
 ```{r}
-linear_slopes <- sephora_token_counts_year %>%
-  group_by(word) %>%
+
+linear_slopes <- sephora_token_counts_category %>%
+  group_by(word, secondary_category) %>%
   do(model = lm(average_rating ~ year, data = .)) %>%
+  filter(!is.null(model)) %>%
   summarize(
-    word = word[1], 
+    word = word[1],
+    secondary_category = secondary_category[1],
     slope = coef(model)[2],         # Extract the slope coefficient
     intercept = coef(model)[1],     # Extract the intercept coefficient
-    significance = summary(model)$coefficients[2, 4]  # Extract the p-value for the slope
+    significance = ifelse(nrow(summary(model)$coefficients) >= 2 & ncol(summary(model)$coefficients) >= 4,
+                          summary(model)$coefficients[2, 4], NA)  # Extract the p-value for the slope if available, otherwise NA
   ) %>%
   ungroup()
+
 ```
 
 
-# Which words have most substantial change in associated rating over time?
+# Which words have most substantial change in associated rating over time per group?
 
-```{r}
+```{r, fig.dim = c(10, 6)}
 linear_slopes %>% 
   filter(significance < 0.05) %>% 
-  slice_max(abs(slope), n = 50) %>%
+  filter(!(word %in% c("opt", "vit", "sat", "co"))) %>% 
+  group_by(secondary_category) %>% 
+  slice_max(abs(slope), n = 12) %>%
   ungroup() %>%
   ggplot(aes(slope, fct_reorder(word, slope), fill = slope > 0)) +
+  facet_wrap(vars(secondary_category), scales = "free")+
+  labs(y = "keyword")+
+  scale_fill_discrete(name = "Associated with...", labels = c("WORSE ratings over time", "BETTER ratings over time")) +
   geom_col(alpha = 0.8) +
   theme_classic()
 ```
@@ -93,16 +113,20 @@ linear_slopes %>%
 
 # Plotting words with substantial change in associated rating over time
 
-```{r}
+Work in progress, decided to change my approach
+
+```{r, eval = FALSE}
 linear_slopes_significant <-  linear_slopes %>% 
   filter(significance < 0.01)
 
 linear_slopes_significant_words <- linear_slopes_significant %>% 
   filter(abs(slope) >= 0.1) %>% 
-  select(word)
+  select(word, secondary_category) %>% 
+  filter(str_detect(word, "[A-Za-z]")) %>% 
+  filter(nchar(word) > 1)
 
-token_trajectories_lm <- sephora_token_counts_year %>% 
-  right_join(linear_slopes_significant_words) %>% 
+token_trajectories_lm <- sephora_token_counts_category %>% 
+  right_join(linear_slopes_significant_words, by = c(word, secondary_category)) %>% 
   ggplot(aes(x = year, y = average_rating, group = word, color = word)) +
   geom_smooth(method = "lm", se = FALSE) +  
   labs(x = "Year", y = "Score") +
@@ -117,10 +141,6 @@ token_trajectories_loess <- sephora_token_counts_year %>%
 
 ggplotly(token_trajectories_lm)
 ggplotly(token_trajectories_loess)
-```
-
-```{r}
-fwrite(linear_slopes, "/Users/camillejohnston/Documents/TidyTuesday/sephora_101423/processed_data/linear_slopes.csv")
 ```
 
 
